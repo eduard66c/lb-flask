@@ -12,6 +12,9 @@ permissions:
 jobs:
   terraform-and-deploy:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
     env:
       PROJECT_ID: ${{ secrets.PROJECT_ID }}
       REGION: ${{ secrets.REGION }}
@@ -68,6 +71,7 @@ jobs:
 
     # Build and Push Docker Image
     - name: Build and Push Docker
+      working-directory: .   # repo root, where Dockerfile lives
       run: |
         gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
         IMAGE_NAME="${{ env.REGISTRY_URL }}/flask-app:${{ env.IMAGE_TAG }}"
