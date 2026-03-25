@@ -1,0 +1,92 @@
+name: 'GCP Infrastructure & FastAPI Deploy'
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Allows you to trigger this manually from the UI
+
+permissions:
+  contents: 'read'
+  id-token: 'write'
+
+jobs:
+  terraform-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_ID: ${{ secrets.PROJECT_ID }}
+      REGION: ${{ secrets.REGION }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    # Identity Handshake (Initial Auth to run Terraform)
+    # Note: On the very first run, you may need to create the WIF pool manually 
+    - id: 'auth'
+      uses: 'google-github-actions/auth@v2'
+      with:
+        workload_identity_provider: 'projects/${{ secrets.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider'
+        service_account: 'github-actions-deployer@${{ secrets.PROJECT_ID }}.iam.gserviceaccount.com'
+
+    # Terraform Setup & Apply
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+
+    - name: Terraform Init
+      run: terraform init
+
+    - name: Terraform Apply - GKE Cluster
+      run: |
+        terraform apply -auto-approve \
+          -target=module.gke \
+          -var="project_id=${{ env.PROJECT_ID }}" \
+          -var="region=${{ env.REGION }}" \
+          -var="github_repo=${{ github.repository }}"
+
+    - name: Terraform Apply - Full
+      id: apply
+      run: |
+        terraform apply -auto-approve \
+          -var="project_id=${{ env.PROJECT_ID }}" \
+          -var="region=${{ env.REGION }}" \
+          -var="github_repo=${{ github.repository }}"
+
+    # Map Terraform Outputs to GitHub Environment Variables
+    - name: Sync Terraform Outputs
+      run: |
+        echo "REGISTRY_URL=$(terraform output -raw repository_url)" >> $GITHUB_ENV
+        echo "CLUSTER_NAME=$(terraform output -raw cluster_name)" >> $GITHUB_ENV
+        # We use the SHA as the unique image tag
+        echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_ENV
+
+    # GKE Credentials
+    - name: 'Set up GKE credentials'
+      uses: 'google-github-actions/get-gke-credentials@v2'
+      with:
+        cluster_name: ${{ env.CLUSTER_NAME }}
+        location: ${{ env.REGION }}
+
+    # Build and Push Docker Image
+    - name: Build and Push Docker
+      run: |
+        gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+        IMAGE_NAME="${{ env.REGISTRY_URL }}/flask-app:${{ env.IMAGE_TAG }}"
+        docker build -t $IMAGE_NAME .
+        docker push $IMAGE_NAME
+
+    # Push Helm Chart & Deploy
+    # TODO: Create Helm chart first
+    # - name: Helm Deploy
+    #   run: |
+    #     # Login to Helm OCI
+    #     gcloud auth print-access-token | helm registry login -u oauth2accesstoken --password-stdin ${{ env.REGION }}-docker.pkg.dev
+        
+    #     # Package and Push Chart (OCI)
+    #     helm package ./charts/my-flaskapp-chart
+    #     helm push my-flaskapp-chart-*.tgz oci://${{ env.REGISTRY_URL }}
+        
+    #     # Deploy to GKE (Triggering the Load Balancer via Ingress)
+    #     helm upgrade --install fastapi-release oci://${{ env.REGISTRY_URL }}/my-flaskapp-chart \
+    #       --set image.repository="${{ env.REGISTRY_URL }}/flask-app" \
+    #       --set image.tag="${{ env.IMAGE_TAG }}" \
+    #       --wait
