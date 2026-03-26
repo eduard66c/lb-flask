@@ -40,6 +40,7 @@ locals {
     "roles/artifactregistry.admin",  # Push Docker images & Helm charts
     "roles/iam.serviceAccountUser",  # Impersonate SAs (needed by GKE node pool)
     "roles/iam.serviceAccountAdmin", # Manage service accounts via Terraform
+    "roles/compute.viewer",          # Read instance groups backing GKE node pools
   ]
 }
 

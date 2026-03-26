@@ -11,6 +11,6 @@ variable "region" {
 
 variable "cluster_name" {
   type        = string
-  default     = "fastapi-autopilot-cluster"
+  default     = "flaskapp-autopilot-cluster"
   description = "The name of your GKE Autopilot Cluster"
 }

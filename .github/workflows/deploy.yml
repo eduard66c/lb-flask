@@ -1,4 +1,4 @@
-name: 'GCP Infrastructure & FastAPI Deploy'
+name: 'GCP Infrastructure & Flask App Deploy'
 
 on:
   push:
@@ -90,7 +90,7 @@ jobs:
     #     helm push my-flaskapp-chart-*.tgz oci://${{ env.REGISTRY_URL }}
         
     #     # Deploy to GKE (Triggering the Load Balancer via Ingress)
-    #     helm upgrade --install fastapi-release oci://${{ env.REGISTRY_URL }}/my-flaskapp-chart \
+    #     helm upgrade --install flaskapp-release oci://${{ env.REGISTRY_URL }}/my-flaskapp-chart \
     #       --set image.repository="${{ env.REGISTRY_URL }}/flask-app" \
     #       --set image.tag="${{ env.IMAGE_TAG }}" \
     #       --wait

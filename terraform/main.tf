@@ -16,10 +16,10 @@ module "gke" {
   region     = var.region
 }
 
-resource "helm_release" "fastapi_app" {
-  name       = "fastapi-release"
+resource "helm_release" "flaskapp_app" {
+  name       = "flaskapp-release"
   repository = "oci://${module.registry.repository_url}"
-  chart      = "my-fastapi-chart"
+  chart      = "my-flaskapp-chart"
   version    = "0.1.0"
   namespace  = "default"
 
